@@ -57,21 +57,39 @@ app.get('/:summonerName', async (req, res) => {
     }
 })
 
-app.get('/:summonerName/matches', (req, res) => {
-    client.query(`SELECT * FROM matches WHERE summonerName = '${req.params.summonerName}'`)
-    .then(result => {
-        const puuid = result.rows[0].puuid;
-        api_riot.get('eun1', 'match.getMatchIdsByPUUID', puuid).then(data => {
-            res.send(data);
-        }).catch(err => {
-            res.send(err);
+app.get('/:summonerName/matches', async (req, res) => {
+    const summoner = await client.query(`SELECT * FROM summoners WHERE LOWER(summonerName) = LOWER('${req.params.summonerName}')`);
+    const puuid = summoner.rows[0].puuid;
+    const summonerId = summoner.rows[0].summonerId;
+    const matches = await client.query(`SELECT * FROM matches WHERE LOWER(summonerId) = LOWER('${summonerId}')`);
+
+    if (matches.rows.length === 0) {
+        console.log('No matches found in DB');
+        const api_matches = await api_riot.get('europe', 'match.getMatchIdsByPUUID', puuid)
+        api_matches.forEach(async match => {
+            api_riot.get('europe', 'match.getMatch', match)
+            .then(data => {
+                const player = data.participants.filter(participant => participant.summonerName === req.params.summonerName)[0];
+                client.query(`INSERT INTO matches (matchId, summonerId, championId, championName, role, lane, kills, deaths, assists, win, duration) 
+                    VALUES ('${match.gameId}', 
+                    '${player.summonerId}', 
+                    '${player.championId}', 
+                    '${player.championId}', 
+                    '${player.championName}', 
+                    '${player.role}', 
+                    '${player.lane}', 
+                    '${player.kills}', 
+                    '${player.deaths}', 
+                    '${player.assists}', 
+                    '${player.win}', 
+                    '${data.gameDuration}')`);
+            }).catch(err => {
+                console.log(err);
+            });
         });
-    }
-    ).catch(err => {
-        console.log(err);
-        res.status(500).send(err);
-    }
-    );
+    } 
+    const matches_DB = await client.query(`SELECT * FROM matches WHERE LOWER(summonerId) = LOWER('${summonerId}')`);
+    res.send(matches_DB.rows);
 });
 
 client.connect().then(() => {
