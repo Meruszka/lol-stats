@@ -13,8 +13,11 @@ const client = new pg.Client({
     database: 'lol'
 });
 
-const API_key = process.env.API_KEY || "RGAPI-e9f5621c-8ed8-4224-bf8e-a95c80a20cd5";
-let api_riot = new teemoJS(API_key);
+const API_key = process.env.API_KEY || "RGAPI-82b78258-7601-4873-b40b-3749d38d0f8b";
+config = {
+    retrys: 10,
+}
+let api_riot = new teemoJS(API_key, config);
 
 app.get('/', (req, res) => {
     api_riot.get('eun1', 'summoner.getBySummonerName', 'Meruszka').then(data => {
@@ -29,7 +32,7 @@ app.get('/favicon.ico', (req, res) => res.end())
 
 app.get('/:summonerName', async (req, res) => {
     console.log(req.params.summonerName);
-    const DB_respond = await client.query(`SELECT * FROM summoners WHERE LOWER(summonerName) = LOWER('${req.params.summonerName}')`);
+    const DB_respond = await client.query(`SELECT * FROM summoners WHERE LOWER(summonerName) = LOWER('${req.params.summonerName}');`);
     if (DB_respond.rows.length === 0) {
         console.log('No summoner found in DB');
         api_riot.get('eun1', 'summoner.getBySummonerName', req.params.summonerName).then(data => {
@@ -48,9 +51,9 @@ app.get('/:summonerName', async (req, res) => {
     } else {
         console.log('DB')
         res.send({
-            summonerName: DB_respond.rows[0].summonerName,
-            summonerId: DB_respond.rows[0].summonerId,
-            accountId: DB_respond.rows[0].accountId,
+            summonerName: DB_respond.rows[0].summonername,
+            summonerId: DB_respond.rows[0].summonerid,
+            accountId: DB_respond.rows[0].accountid,
             puuid: DB_respond.rows[0].puuid,
             level: DB_respond.rows[0].level
         });
@@ -60,32 +63,31 @@ app.get('/:summonerName', async (req, res) => {
 app.get('/:summonerName/matches', async (req, res) => {
     const summoner = await client.query(`SELECT * FROM summoners WHERE LOWER(summonerName) = LOWER('${req.params.summonerName}')`);
     const puuid = summoner.rows[0].puuid;
-    const summonerId = summoner.rows[0].summonerId;
+    const summonerId = summoner.rows[0].summonerid;
     const matches = await client.query(`SELECT * FROM matches WHERE LOWER(summonerId) = LOWER('${summonerId}')`);
 
     if (matches.rows.length === 0) {
         console.log('No matches found in DB');
-        const api_matches = await api_riot.get('europe', 'match.getMatchIdsByPUUID', puuid)
+        const api_matches = await api_riot.get('europe', 'match.getMatchIdsByPUUID', puuid, {
+            start: 20,
+            count: 10
+        })
         api_matches.forEach(async match => {
-            api_riot.get('europe', 'match.getMatch', match)
-            .then(data => {
-                const player = data.participants.filter(participant => participant.summonerName === req.params.summonerName)[0];
-                client.query(`INSERT INTO matches (matchId, summonerId, championId, championName, role, lane, kills, deaths, assists, win, duration) 
-                    VALUES ('${match.gameId}', 
-                    '${player.summonerId}', 
-                    '${player.championId}', 
-                    '${player.championId}', 
-                    '${player.championName}', 
-                    '${player.role}', 
-                    '${player.lane}', 
-                    '${player.kills}', 
-                    '${player.deaths}', 
-                    '${player.assists}', 
-                    '${player.win}', 
-                    '${data.gameDuration}')`);
-            }).catch(err => {
-                console.log(err);
-            });
+           const data = await api_riot.get('europe', 'match.getMatch', match);
+            const player = data.info.participants.filter(participant => participant.summonerName.toLowerCase() === req.params.summonerName)[0];
+            client.query(`INSERT INTO matches (matchId, summonerId, championId, championName, role, lane, kills, deaths, assists, win, duration) 
+                VALUES (
+                '${data.metadata.matchId}', 
+                '${player.summonerId}', 
+                ${player.championId}, 
+                '${player.championName}', 
+                '${player.role}', 
+                '${player.lane}', 
+                ${player.kills}, 
+                ${player.deaths}, 
+                ${player.assists}, 
+                '${player.win}', 
+                '${data.info.gameDuration}')`);
         });
     } 
     const matches_DB = await client.query(`SELECT * FROM matches WHERE LOWER(summonerId) = LOWER('${summonerId}')`);
