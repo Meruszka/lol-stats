@@ -44,6 +44,7 @@ function getMatchDetails(matchId, summonerName){
         const player = match.info.participants.filter(participant => participant.summonerName=== summonerName)[0];
         return {
             matchId: match.metadata.matchId,
+            gameTime: match.info.gameCreation,
             summonerId: player.summonerId,
             championId: player.championId,
             championName: player.championName,
@@ -66,11 +67,12 @@ async function main(summonerName, start, count){
     console.log(puuid);
     const matches = await getMatches(puuid, start, count);
     console.log(matches);
-    const result = await matches.map(match => {
+      matches.map(match => {
         getMatchDetails(match, summonerName).then(match => {
-            client.query(`INSERT INTO matches (matchId, summonerId, championId, championName, role, lane, kills, deaths, assists, win, duration)
+            client.query(`INSERT INTO matches (matchId, gameTime, summonerId, championId, championName, role, lane, kills, deaths, assists, win, duration)
             VALUES (
             '${match.matchId}',
+            '${match.gameTime}',
             '${match.summonerId}',
             ${match.championId},
             '${match.championName}',
@@ -85,4 +87,4 @@ async function main(summonerName, start, count){
     });
     console.log(result);
 }
-main('Meruszka', 10, 10);
+main('Meruszka', 0, 10);
