@@ -20,18 +20,13 @@ config = {
 let api_riot = new teemoJS(API_key, config);
 
 app.get('/', (req, res) => {
-    api_riot.get('eun1', 'summoner.getBySummonerName', 'Meruszka').then(data => {
-        res.send(data);
-    }).catch(err => {
-        res.send(err);
-    });  
+    res.send('Hello and welcome to the LoL API');  
 });
 
 // Dodać favicon.ico, pewnie z reacta lol
 app.get('/favicon.ico', (req, res) => res.end())
 
 app.get('/:summonerName', async (req, res) => {
-    console.log(req.params.summonerName);
     const DB_respond = await client.query(`SELECT * FROM summoners WHERE LOWER(summonerName) = LOWER('${req.params.summonerName}');`);
     if (DB_respond.rows.length === 0) {
         console.log('No summoner found in DB');
@@ -68,10 +63,7 @@ app.get('/:summonerName/matches', async (req, res) => {
 
     if (matches.rows.length === 0) {
         console.log('No matches found in DB');
-        const api_matches = await api_riot.get('europe', 'match.getMatchIdsByPUUID', puuid, {
-            start: 20,
-            count: 10
-        })
+        const api_matches = await api_riot.get('europe', 'match.getMatchIdsByPUUID', puuid)
         api_matches.forEach(async match => {
            const data = await api_riot.get('europe', 'match.getMatch', match);
             const player = data.info.participants.filter(participant => participant.summonerName.toLowerCase() === req.params.summonerName)[0];
@@ -96,7 +88,6 @@ app.get('/:summonerName/matches', async (req, res) => {
 
 client.connect().then(() => {
     console.log('Connected to database');
-    console.log('Init database');
     client.query(`
     
     CREATE TABLE IF NOT EXISTS summoners (
@@ -123,9 +114,7 @@ client.connect().then(() => {
             REFERENCES summoners (summonerId)
             ON DELETE CASCADE
         );
-        `)
-    console.log('Database inited');
-        
+        `) 
     app.listen(port, () => {
         console.log(`Server is running on port ${port}`);
         
