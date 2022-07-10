@@ -67,9 +67,10 @@ app.get('/:summonerName/matches', async (req, res) => {
         api_matches.forEach(async match => {
            const data = await api_riot.get('europe', 'match.getMatch', match);
             const player = data.info.participants.filter(participant => participant.summonerName.toLowerCase() === req.params.summonerName)[0];
-            client.query(`INSERT INTO matches (matchId, summonerId, championId, championName, role, lane, kills, deaths, assists, win, duration) 
+            client.query(`INSERT INTO matches (matchId, gameTime, summonerId, championId, championName, role, lane, kills, deaths, assists, win, duration) 
                 VALUES (
                 '${data.metadata.matchId}', 
+                '${data.info.gameCreation}',
                 '${player.summonerId}', 
                 ${player.championId}, 
                 '${player.championName}', 
@@ -99,6 +100,7 @@ client.connect().then(() => {
         );
     CREATE TABLE IF NOT EXISTS matches (
         matchId VARCHAR(255) NOT NULL PRIMARY KEY,
+        gameTime VARCHAR(255) NOT NULL,
         summonerId VARCHAR(255) NOT NULL,
         championId INTEGER NOT NULL,
         championName VARCHAR(255) NOT NULL,
