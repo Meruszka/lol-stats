@@ -1,7 +1,8 @@
 const { default: axios } = require('axios');
 const postgres = require('pg');
 const riotApi = require('teemojs');
-const riotApiKey = 'RGAPI-ad4a3daf-1bc6-4208-b57d-1c04913df4fa';
+require('dotenv').config();
+const riotApiKey = process.env.riot_api_key || 'Riot API Key';
 
 const api = new riotApi(riotApiKey, {
     retrys: 10
@@ -62,11 +63,9 @@ function getMatchDetails(matchId, summonerName){
     });
 }
 
-async function main(summonerName, start, count){
+async function importToDatabase(summonerName, start, count){
     const puuid = await getUserPuuid(summonerName);
-    console.log(puuid);
     const matches = await getMatches(puuid, start, count);
-    console.log(matches);
       matches.map(match => {
         getMatchDetails(match, summonerName).then(match => {
             client.query(`INSERT INTO matches (matchId, gameTime, summonerId, championId, championName, role, lane, kills, deaths, assists, win, duration)
@@ -85,6 +84,7 @@ async function main(summonerName, start, count){
             '${match.duration}')`);
         });
     });
-    console.log(result);
 }
-main('Meruszka', 0, 10);
+for (let i = 0; i < 10; i++) {
+    importToDatabase('Meruszka', i*100, 100);
+}
